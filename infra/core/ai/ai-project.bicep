@@ -11,6 +11,9 @@ param resourceTokenSalt string = ''
 
 var resourceToken = empty(resourceTokenSalt) ? uniqueString(subscription().id, resourceGroup().id, location) : uniqueString(subscription().id, resourceGroup().id, location, resourceTokenSalt)
 
+@description('Optional. Explicit base name for token-named resources (ACR, Application Insights, Log Analytics). When empty, the generated resourceToken names are used.')
+param resourceBaseName string = ''
+
 @description('Name of the project')
 param aiFoundryProjectName string
 
@@ -91,7 +94,7 @@ module logAnalytics '../monitor/loganalytics.bicep' = if (shouldCreateAppInsight
   params: {
     location: location
     tags: tags
-    name: 'logs-${resourceToken}'
+    name: empty(resourceBaseName) ? 'logs-${resourceToken}' : resourceBaseName
   }
 }
 
@@ -100,7 +103,7 @@ module applicationInsights '../monitor/applicationinsights.bicep' = if (shouldCr
   params: {
     location: location
     tags: tags
-    name: 'appi-${resourceToken}'
+    name: empty(resourceBaseName) ? 'appi-${resourceToken}' : resourceBaseName
     logAnalyticsWorkspaceId: logAnalytics.outputs.id
     projectMIPrincipalId: aiAccount::project.identity.principalId
   }
@@ -178,7 +181,7 @@ var shouldCreateAppInsightsConnection = shouldCreateAppInsights || shouldCreateE
 
 resource appInsightConnection 'Microsoft.CognitiveServices/accounts/projects/connections@2025-04-01-preview' = if (shouldCreateAppInsightsConnection) {
   parent: aiAccount::project
-  name: 'appi-${resourceToken}'
+  name: empty(resourceBaseName) ? 'appi-${resourceToken}' : resourceBaseName
   properties: {
     category: 'AppInsights'
     target: shouldCreateAppInsights ? applicationInsights.outputs.id : existingApplicationInsightsResourceId
@@ -242,7 +245,7 @@ module acr '../host/acr.bicep' = if (hasAcrConnection) {
   params: {
     location: location
     tags: tags
-    resourceName: '${abbrs.containerRegistryRegistries}${resourceToken}'
+    resourceName: empty(resourceBaseName) ? '${abbrs.containerRegistryRegistries}${resourceToken}' : resourceBaseName
     connectionName: acrConnectionName
     principalId: principalId
     principalType: principalType
